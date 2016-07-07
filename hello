@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+CLR_NOR="\x1b[0m"  # back to NORMAL
+CLR_BOLD="\x1b[1m" # BOLD text
+CLR_RED="\x1b[31m" # RED text
+CLR_GRN="\x1b[32m" # GREEN text
+CLR_YLW="\x1b[33m" # YELLOW text
+
+export NOTE_HOME=`pwd`
+
+echo -e "${CLR_YLW}Checking Python version......${CLR_NOR}"
+PYV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
+if [[ $PYV == 2.7 ]]
+then
+    PY=python;
+    PIP=pip;
+    NTB="ipython notebook";
+fi
+if [[ $PYV == 3* ]]
+then
+    PY=python2.7;
+    PIP=pip2.7;
+    NTB="ipython notebook";
+fi
+if (eval "${PY} -V"); then
+    echo -e "${CLR_YLW}Python version checked......$PYV ${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+else
+    echo -e "${CLR_YLW}Python version checked......$PYV ${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
+    exit -1
+fi
+
+echo -e "${CLR_YLW}Setting Python path to user local......${CLR_NOR}${CLR_GRN}Done${CLR_NOR}"
+export PYTHONPATH=$NOTE_HOME/.py/lib/python$PYV/site-packages/:$NOTE_HOME/src:$NOTE_HOME/scripts
+
+if (eval "$PY -c 'import virtualenv as venv'"); then
+    echo -e "${CLR_YLW}Checking virtualenv......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+else
+    echo -e "${CLR_YLW}Checking virtualenv......${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
+    echo -e "${CLR_YLW}Reinstalling virtualenv......${CLR_NOR}"
+    eval "${PIP} uninstall virtualenv"
+    eval "${PIP} install virtualenv"
+    echo -e "${CLR_YLW}Reinstalling virtualenv......${CLR_NOR}${CLR_GRN}Done${CLR_NOR}"
+fi
+
+if (eval "${PY} bin/env.py"); then
+    source .py/bin/activate
+
+    echo -e "${CLR_YLW}Installing numpy......${CLR_NOR}"
+    eval "${PIP} install numpy"
+    echo -e "${CLR_YLW}Installing numpy......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing scipy......${CLR_NOR}"
+    eval "${PIP} install scipy"
+    echo -e "${CLR_YLW}Installing scipy......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing pyzmq......${CLR_NOR}"
+    eval "${PIP} install pyzmq"
+    echo -e "${CLR_YLW}Installing pyzmq......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing jinja2......${CLR_NOR}"
+    eval "${PIP} install jinja2"
+    echo -e "${CLR_YLW}Installing jinja2......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing tornado......${CLR_NOR}"
+    eval "${PIP} install tornado"
+    echo -e "${CLR_YLW}Installing tornado......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing jsonschema......${CLR_NOR}"
+    eval "${PIP} install jsonschema"
+    echo -e "${CLR_YLW}Installing jsonschema......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing terminado......${CLR_NOR}"
+    eval "${PIP} install terminado"
+    echo -e "${CLR_YLW}Installing terminado......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing ipython......${CLR_NOR}"
+    eval "${PIP} install ipython"
+    echo -e "${CLR_YLW}Installing ipython......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing dependencies......${CLR_NOR}"
+    eval "${PIP} install -r requirements.txt"
+    echo -e "${CLR_YLW}Installing dependencies......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    if [[ $NOTE_ENV ]]
+    then
+        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$NOTE_ENV${CLR_NOR}"
+    else
+        export NOTE_ENV="dev"
+        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$NOTE_ENV${CLR_NOR}"
+    fi
+
+    export PATH="$PATH:${NOTE_HOME}/bin/"
+    eval ${NTB}
+fi
