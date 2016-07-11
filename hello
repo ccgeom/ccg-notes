@@ -20,17 +20,10 @@ if [[ $PYV == 3* ]]
 then
     PY=python2.7;
     PIP=pip2.7;
-<<<<<<< HEAD
-    NTB="ipython notebook";
-fi
-if (eval "${PY} -V"); then
-    echo -e "${CLR_YLW}Python version checked......$PYV ${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
-=======
     NTB="jupyter notebook";
 fi
 if (eval "${PY} -V"); then
     echo -e "${CLR_YLW}Python version checked......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
->>>>>>> 0cb4fc1d707a6faf68a4012c4b34fdfde4ab5e5c
 else
     echo -e "${CLR_YLW}Python version checked......$PYV ${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
     exit -1
