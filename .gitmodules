@@ -1,0 +1,3 @@
+[submodule "vendors/fealpy"]
+	path = vendors/fealpy
+	url = git@github.com:weihuayi/fealpy.git
