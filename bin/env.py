@@ -1,3 +1,4 @@
+#!/usr/bin/env python3.6
 # -*- coding: utf-8 -*-
 
 import sys
@@ -17,22 +18,28 @@ ENDC = '\033[0m'
 BOLD = "\033[1m"
 
 def head(msg):
-    print (HEADER + msg + ENDC)
+    print(HEADER + msg + ENDC)
 
 def info(msg):
-    print msg
+    print(msg)
 
 def infog(msg):
-    print (OKGREEN + msg + ENDC)
+    print(OKGREEN + msg + ENDC)
 
 def infob(msg):
-    print (OKBLUE + msg + ENDC)
+    print(OKBLUE + msg + ENDC)
 
 def warn(msg):
-    print (WARNING + msg + ENDC)
+    print(WARNING + msg + ENDC)
 
 def err(msg):
-    print (FAIL + msg + ENDC)
+    print(FAIL + msg + ENDC)
+
+"""
+Welcome message
+"""
+
+head("Welcome!")
 
 """
 Check python version
@@ -40,14 +47,11 @@ Check python version
 
 info("checking python version...")
 
+req_version = (3, 6)
 cur_version = sys.version_info
 
-if cur_version < (2,7):
-    err("Your Python interpreter is too old. Please consider upgrading.")
-    sys.exit(-1)
-
-if cur_version >= (3,0):
-    err("Your Python interpreter is 3.x but 2.7 is required.")
+if cur_version < req_version:
+    err("Your Python interpreter is too old. Please consider upgrading to 3.6 or above.")
     sys.exit(-1)
 
 """
@@ -55,5 +59,9 @@ Check virtual enviroment
 """
 
 if not os.path.exists(".py"):
-    sys.argv = ['virtualenv', '--system-site-packages', '.py']
+    #if cur_version >= (3, 7, 7):
+    #    sys.argv = ['.py']
+    #    venv.cli_run(sys.argv)
+    #else:
+    sys.argv = ['virtualenv', '.py']
     venv.main()

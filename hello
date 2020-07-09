@@ -6,31 +6,35 @@ CLR_RED="\x1b[31m" # RED text
 CLR_GRN="\x1b[32m" # GREEN text
 CLR_YLW="\x1b[33m" # YELLOW text
 
-export NOTE_HOME=`pwd`
+export PRJ_HOME=`pwd`
 
 echo -e "${CLR_YLW}Checking Python version......${CLR_NOR}"
 PYV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
 if [[ $PYV == 2.7 ]]
 then
-    PY=python;
-    PIP=pip;
-    NTB="ipython notebook";
+    PY=python3;
+    PIP=pip3;
+    PIP_INST="pip3 install -i https://pypi.douban.com/simple/";
+    NTB="ipython3 notebook";
+    TEST="nosetests"
 fi
 if [[ $PYV == 3* ]]
 then
-    PY=python2.7;
-    PIP=pip2.7;
+    PY=python;
+    PIP=pip;
+    PIP_INST="pip install -i https://pypi.douban.com/simple/";
     NTB="jupyter notebook";
+    TEST="nosetests"
 fi
 if (eval "${PY} -V"); then
     echo -e "${CLR_YLW}Python version checked......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 else
-    echo -e "${CLR_YLW}Python version checked......$PYV ${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
+    echo -e "${CLR_YLW}Python version checked......${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
     exit -1
 fi
 
 echo -e "${CLR_YLW}Setting Python path to user local......${CLR_NOR}${CLR_GRN}Done${CLR_NOR}"
-export PYTHONPATH=$NOTE_HOME/.py/lib/python$PYV/site-packages/:$NOTE_HOME/src:$NOTE_HOME/scripts
+export PYTHONPATH=$PRJ_HOME/.py/lib/$PY/site-packages/:$PRJ_HOME/src:$PRJ_HOME/test
 
 if (eval "$PY -c 'import virtualenv as venv'"); then
     echo -e "${CLR_YLW}Checking virtualenv......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
@@ -38,7 +42,7 @@ else
     echo -e "${CLR_YLW}Checking virtualenv......${CLR_NOR}${CLR_RED}Failed${CLR_NOR}"
     echo -e "${CLR_YLW}Reinstalling virtualenv......${CLR_NOR}"
     eval "${PIP} uninstall virtualenv"
-    eval "${PIP} install virtualenv"
+    eval "${PIP_INST} virtualenv"
     echo -e "${CLR_YLW}Reinstalling virtualenv......${CLR_NOR}${CLR_GRN}Done${CLR_NOR}"
 fi
 
@@ -46,53 +50,66 @@ if (eval "${PY} bin/env.py"); then
     source .py/bin/activate
 
     echo -e "${CLR_YLW}Installing numpy......${CLR_NOR}"
-    eval "${PIP} install numpy"
+    eval "${PIP_INST} numpy"
     echo -e "${CLR_YLW}Installing numpy......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing scipy......${CLR_NOR}"
-    eval "${PIP} install scipy"
+    eval "${PIP_INST} scipy"
     echo -e "${CLR_YLW}Installing scipy......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
+    echo -e "${CLR_YLW}Installing Pillow......${CLR_NOR}"
+    eval "${PIP_INST} Pillow"
+    echo -e "${CLR_YLW}Installing Pillow......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
+    echo -e "${CLR_YLW}Installing matplotlib......${CLR_NOR}"
+    eval "${PIP_INST} matplotlib"
+    echo -e "${CLR_YLW}Installing matplotlib......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
     echo -e "${CLR_YLW}Installing pyzmq......${CLR_NOR}"
-    eval "${PIP} install pyzmq"
+    eval "${PIP_INST} pyzmq"
     echo -e "${CLR_YLW}Installing pyzmq......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing jinja2......${CLR_NOR}"
-    eval "${PIP} install jinja2"
+    eval "${PIP_INST} jinja2"
     echo -e "${CLR_YLW}Installing jinja2......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing tornado......${CLR_NOR}"
-    eval "${PIP} install tornado"
+    eval "${PIP_INST} tornado"
     echo -e "${CLR_YLW}Installing tornado......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing jsonschema......${CLR_NOR}"
-    eval "${PIP} install jsonschema"
+    eval "${PIP_INST} jsonschema"
     echo -e "${CLR_YLW}Installing jsonschema......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing terminado......${CLR_NOR}"
-    eval "${PIP} install terminado"
+    eval "${PIP_INST} terminado"
     echo -e "${CLR_YLW}Installing terminado......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing ipython......${CLR_NOR}"
-    eval "${PIP} install ipython"
+    eval "${PIP_INST} ipython"
     echo -e "${CLR_YLW}Installing ipython......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
+    echo -e "${CLR_YLW}Installing nose......${CLR_NOR}"
+    eval "${PIP_INST} nose"
+    echo -e "${CLR_YLW}Installing nose......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
+
     echo -e "${CLR_YLW}Installing jupyter......${CLR_NOR}"
-    eval "${PIP} install jupyter"
+    eval "${PIP_INST} jupyter"
     echo -e "${CLR_YLW}Installing jupyter......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
     echo -e "${CLR_YLW}Installing dependencies......${CLR_NOR}"
-    eval "${PIP} install -r requirements.txt"
+    eval "${PIP_INST} -r requirements.txt"
     echo -e "${CLR_YLW}Installing dependencies......${CLR_NOR}${CLR_GRN}OK${CLR_NOR}"
 
-    if [[ $NOTE_ENV ]]
+    eval "${PIP_INST} -r requirements.txt"
+
+    if [[ $PRJ_ENV ]]
     then
-        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$NOTE_ENV${CLR_NOR}"
+        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$PRJ_ENV${CLR_NOR}"
     else
-        export NOTE_ENV="dev"
-        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$NOTE_ENV${CLR_NOR}"
+        export PRJ_ENV="dev"
+        echo -e "${CLR_YLW}Current environment: ${CLR_NOR}${CLR_RED}$PRJ_ENV${CLR_NOR}"
     fi
 
-    export PATH="$PATH:${NOTE_HOME}/bin/"
-    eval ${NTB}
+    export PATH="$PATH:${PRJ_HOME}/bin/"
 fi
