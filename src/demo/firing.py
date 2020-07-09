@@ -69,10 +69,11 @@ if __name__ == '__main__':
     pvalues[5000] = 1.0                       # 初始着火处
 
     print('evolving...')
-    counter = 1
+    counter, ix = 1, 0
     while counter != 0:
+        print(ix, counter)
         mesh.point_arrays['pvalues'][:] = pvalues
         mesh.plot(scalars='pvalues', screenshot='data/firing_%02d.png' % ix, interactive=False)
         counter, result = step(neighbors, pvalues)
         pvalues = result
-        print(counter)
+        ix += 1
