@@ -6,4 +6,5 @@ if [ ! -f .py/lib/python${PYV}/site-packages/fealpy ]; then
     cd vendors/fealpy
     pwd
     python3 setup_linux.py develop
+    cd ../..
 fi
