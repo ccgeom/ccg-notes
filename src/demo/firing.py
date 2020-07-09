@@ -1,15 +1,19 @@
 import numpy as np
 import pyvista as pv
+import sys
 
 
 def build_index(mesh, pionts):
+    n_points = mesh.n_points
     neighbors = {}
-    for i in range(mesh.n_points):
+    for i in range(n_points):
+        print(i)
+        sys.stdout.flush()
         if i not in neighbors.keys():
             neighbors[i] = []
 
         p = pionts[i]
-        for j in range(mesh.n_points):
+        for j in range(n_points):
             if j not in neighbors.keys():
                 neighbors[j] = []
 
@@ -17,8 +21,8 @@ def build_index(mesh, pionts):
             if i != j:
                 d = np.sqrt(np.sum((p - q) * (p - q)))
                 if d < 0.05:
-                    neighbors[i] = (j, (q - p) / d)
-                    neighbors[j] = (i, (p - q) / d)
+                    neighbors[i].append((j, (q - p) / d))
+                    neighbors[j].append((i, (p - q) / d))
 
     return neighbors
 
@@ -56,8 +60,9 @@ if __name__ == '__main__':
     mesh = pv.read('data/doubletorus.vtu')
     mesh.point_arrays['pvalues'] = np.ones([mesh.n_points]) * 0.7  # 绿色的森林
 
-    print('build index...')
+    print('copy vertex...')
     pionts = np.array(mesh.points).copy()
+    print('build index...')
     neighbors = build_index(mesh, pionts)
 
     print('initialize...')
@@ -69,4 +74,4 @@ if __name__ == '__main__':
     for ix in range(13):
         mesh.point_arrays['pvalues'][:] = pvalues
         mesh.plot(scalars='pvalues', screenshot='data/firing_%02d.png' % ix, interactive=False)
-        print(step())
+        print(step(neighbors, pvalues))
