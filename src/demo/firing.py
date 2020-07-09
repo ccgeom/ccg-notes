@@ -35,7 +35,7 @@ def step(neighbors, pvalues):
         for j, v in neighbors[i]:
             qval = pvalues[j]
             if pval > 0.75:                      # 如果 p 点正在燃烧
-                if qval == 0.7:
+                if qval == 0.7:                  # 如果 q 点尚未燃烧过
                     pvalues[j] = 1.0             # 则点燃 q 点
                     counter += 1
             elif pval == 0.7:                    # 如果 p 点尚未燃烧过
@@ -43,9 +43,12 @@ def step(neighbors, pvalues):
                     vectors.append(v)            # 则记录来火方向
         meet_cond = False
         if len(vectors) > 0:
-            for v in vectors:
-                if np.sum(v * vectors[0]) < 0:
-                    meet_cond = True
+            for v1 in vectors:
+                for v2 in vectors:
+                    if np.sum(v1 * v2) < 0:
+                        meet_cond = True
+                        break
+                if meet_cond:
                     break
             if meet_cond:                        # 满足相遇条件
                 pvalues[i] = 0.0                 # 则 p 点是相遇点
