@@ -1,6 +1,10 @@
+
+import sys
+
 import numpy as np
 import pyvista as pv
-import sys
+
+from scipy.spatial import Delaunay
 
 
 def build_index(mesh, pionts):
@@ -40,29 +44,12 @@ def step(neighbors, pvalues):
             else:
                 result[i] = pval * 0.9
 
-        vectors = []
         for j, v in neighbors[i]:
             qval = pvalues[j]
             if pval > 0.8:                      # 如果 p 点正在燃烧
                 if qval == 0.7:                 # 如果 q 点尚未燃烧过
                     result[j] = 1.0             # 则点燃 q 点
                     counter += 1
-            elif pval == 0.7:                   # 如果 p 点尚未燃烧过
-                if qval > 0.9:                  # 如果 q 点刚刚燃烧
-                    vectors.append(v)           # 则记录来火方向
-
-        meeted = 0
-        total = 0
-        if len(vectors) > 0:
-            for v1 in vectors:
-                for v2 in vectors:
-                    total += 1
-                    if np.sum(v1 * v2) < 0:
-                        meeted += 1
-            if meeted * 3 > total:                       # 满足相遇条件
-                result[i] = 0.0                 # 则 p 点是相遇点
-            else:
-                result[0] = 0.0                 # 强制把色阶拉回去的 workaround
 
     return counter, result
 
@@ -70,7 +57,6 @@ def step(neighbors, pvalues):
 if __name__ == '__main__':
     print('reading mesh...')
     mesh = pv.read('data/doubletorus.vtu')
-    mesh.point_arrays['pvalues'] = np.ones([mesh.n_points]) * 0.7  # 绿色的森林
 
     print('copy vertex...')
     pionts = np.array(mesh.points).copy()
@@ -83,7 +69,8 @@ if __name__ == '__main__':
     pvalues[5000] = 1.0                       # 初始着火处
 
     print('evolving...')
-    for ix in range(50):
+    counter = 1
+    while counter != 0:
         mesh.point_arrays['pvalues'][:] = pvalues
         mesh.plot(scalars='pvalues', screenshot='data/firing_%02d.png' % ix, interactive=False)
         counter, result = step(neighbors, pvalues)
