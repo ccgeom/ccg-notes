@@ -71,9 +71,9 @@ def step(cells, cells_begin, cells_end, cneighbors, cvalues, path, n_cells):
                     qpoints = cells[cells_begin[j]:cells_end[j]]
                     commons = set(ppoints).intersection(set(qpoints))
                     if path is None:
-                        path = np.array(list(commons))
+                        path = np.array(list(commons), dtype=np.int)
                     else:
-                        path = np.concatenate([path, np.array(list(commons))])
+                        path = np.concatenate([path, np.array(list(commons), dtype=np.int)])
 
     return counter, result, path
 
@@ -108,10 +108,10 @@ if __name__ == '__main__':
 
         plt = pv.Plotter()
         plt.add_mesh(mesh, scalars='cvalues')
-        plt.show(screenshot='data/fire_%03d.png' % ix, interactive=False)
-
-        counter, result, path = step(cells, cells_begin, cells_end, neighbors, cvalues, path, mesh.n_cells)
         if path is not None:
             plt.add_mesh(mesh.extract_points(path), color='red')
-        cvalues = result
+
+        plt.show(screenshot='data/fire_%03d.png' % ix, interactive=False)
+
+        counter, cvalues, path = step(cells, cells_begin, cells_end, neighbors, cvalues, path, mesh.n_cells)
         ix += 1
