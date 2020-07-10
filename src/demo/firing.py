@@ -37,16 +37,16 @@ def step(neighbors, pvalues):
     for i in range(mesh.n_points):
         pval = pvalues[i]
         if pval > 0.8:                         # 如果 p 点正在燃烧
-            if pval * 0.9 < 0.8:
+            if pval * 0.9 < 0.8:               # 如果 p 点烧尽
                 result[i] = 0.5
             else:
-                result[i] = pval * 0.9
+                result[i] = pval * 0.9         # 如果 p 点未烧尽
 
         for j, v in neighbors[i]:
             qval = pvalues[j]
-            if pval > 0.8:                      # 如果 p 点正在燃烧
-                if qval == 0.7:                 # 如果 q 点尚未燃烧过
-                    result[j] = 1.0             # 则点燃 q 点
+            if pval > 0.8:                     # 如果 p 点正在燃烧
+                if qval == 0.7:                # 如果 q 点尚未燃烧过
+                    result[j] = 1.0            # 则点燃 q 点
                     counter += 1
 
     return counter, result
@@ -55,6 +55,7 @@ def step(neighbors, pvalues):
 if __name__ == '__main__':
     print('reading mesh...')
     mesh = pv.read('data/doubletorus.vtu')
+    mesh.point_arrays['pvalues'] = np.zeros([mesh.n_points])
 
     print('copy vertex...')
     pionts = np.array(mesh.points).copy()
