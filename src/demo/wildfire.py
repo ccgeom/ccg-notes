@@ -5,6 +5,61 @@ import numpy as np
 import pyvista as pv
 
 
+class Firefront:
+    def __init__(self, cutlines):
+        pass
+
+    def cut(self, point):
+        pass
+
+    def join(self, point):
+        pass
+
+    def leave(self, point):
+        pass
+
+    def step(self):
+        pass
+
+
+class FireBulk:
+    def __init__(self):
+        pass
+
+    def join(self, point):
+        pass
+
+    def leave(self, point):
+        pass
+
+    def step(self):
+        pass
+
+
+class CutLines:
+    def __init__(self):
+        pass
+
+    def join(self, point):
+        pass
+
+
+class FiringMethod:
+    def __init__(self, orig_points, dual_points):
+        self.orig_points = orig_points
+        self.dual_points = dual_points
+
+        self.cutlines = CutLines()
+
+        self.firefront = Firefront(self.cutlines)
+        self.firebulk = FireBulk()
+
+    def step(self, point):
+        for fpoint in self.firefront:
+            for neighbor in neighbors(fpoint):
+
+
+
 def make_dual(points, cells, n_cells):
     ix, cur = 0, 0
     centroid = []
@@ -24,7 +79,7 @@ def make_dual(points, cells, n_cells):
     return np.array(centroid), np.array(cells_begin), np.array(cells_end)
 
 
-def build_index(pionts, n_points):
+def build_index(points, n_points):
     neighbors = {}
     for i in range(n_points):
         print(i, end=':')
@@ -32,27 +87,30 @@ def build_index(pionts, n_points):
         if i not in neighbors.keys():
             neighbors[i] = set()
 
-        p = pionts[i]
+        p = points[i]
         for j in range(n_points):
             if j not in neighbors.keys():
                 neighbors[j] = set()
 
-            q = pionts[j]
+            q = points[j]
             if i != j:
                 d = np.sqrt(np.sum((p - q) * (p - q)))
                 if d < 0.01:
-                    neighbors[i].add(j)
-                    neighbors[j].add(i)
+                    neighbors[i].add((j, (q - p) / d))
+                    neighbors[j].add((i, (p - q) / d))
                     print(len(neighbors[i]), end=',')
         print()
 
     return neighbors
 
 
-def step(cells, cells_begin, cells_end, cneighbors, cvalues, path, n_cells):
+def step(points, dual, cells, cells_begin, cells_end, pneighbors, cneighbors, cvalues, last_fireline, last_cutlines):
     counter = 0
+    fireline = []
+    n_points, n_cells = points.shape[0], dual.shape[0]
     result = np.copy(cvalues)
     for i in range(n_cells):
+        ppos = dual[i]
         pval = cvalues[i]
         if pval > 0.8:                         # 如果 p 点正在燃烧
             if pval * 0.9 < 0.8:               # 如果 p 点马上烧尽
@@ -60,41 +118,42 @@ def step(cells, cells_begin, cells_end, cneighbors, cvalues, path, n_cells):
             else:
                 result[i] = pval * 0.9         # 如果 p 点未烧尽
 
-        for j in cneighbors[i]:
-            qval = cvalues[j]
-            if pval > 0.8:                     # 如果 p 点正在燃烧
-                if qval == 0.7:                # 如果 q 点尚未燃烧过
-                    result[j] = 1.0            # 则点燃 q 点
-                    counter += 1
-                elif qval > 0.8:
-                    ppoints = cells[cells_begin[i]:cells_end[i]]
-                    qpoints = cells[cells_begin[j]:cells_end[j]]
-                    commons = set(ppoints).intersection(set(qpoints))
-                    if path is None:
-                        path = np.array(list(commons), dtype=np.int)
-                    else:
-                        path = np.concatenate([path, np.array(list(commons), dtype=np.int)])
+        if pval == 0.7:                        # 如果 p 点尚未燃烧过
+            for j, v in cneighbors[i]:
+                qpos = dual[j]
+                qval = cvalues[j]
+                if pval > 0.9:                 # 如果 p 点正在燃烧
+                    if qval == 0.7:            # 如果 q 点尚未燃烧过
+                        result[j] = 1.0        # 则点燃 q 点
+                        counter += 1
 
-    return counter, result, path
+    return counter, result, fireline, cutlines
+
 
 
 if __name__ == '__main__':
     print('reading mesh...')
     mesh = pv.read('data/doubletorus.vtu')
-    mesh.cell_arrays['cvalues'] = np.zeros([mesh.n_cells])
-    mesh.point_arrays['pvalues'] = np.zeros([mesh.n_points])
+    n_points = mesh.n_points
+    n_cells = mesh.n_cells
+    mesh.cell_arrays['cvalues'] = np.zeros([n_cells])
+    mesh.point_arrays['pvalues'] = np.zeros([n_points])
 
     print('copy data...')
-    pionts = np.array(mesh.points).copy()
+    points = np.array(mesh.points).copy()
     cells = np.array(mesh.cells).copy()
 
     print('constructing dual...')
-    dual, cells_begin, cells_end = make_dual(pionts, cells, mesh.n_cells)
+    dual, cells_begin, cells_end = make_dual(points, cells, mesh.n_cells)
 
     print('build index...')
-    neighbors = build_index(dual, mesh.n_cells)
+    pneighbors = build_index(points, mesh.n_cells)
+    cneighbors = build_index(dual, mesh.n_cells)
 
     print('initialize...')
+    firefront = Firefront()
+    cutline = Cutline()
+
     cvalues = np.ones([mesh.n_cells]) * 0.7   # 绿色的森林
     cvalues[0] = 0.0                          # 强制把色阶拉回去的 workaround
     cvalues[10000] = 1.0                      # 初始着火处
@@ -109,9 +168,9 @@ if __name__ == '__main__':
         plt = pv.Plotter()
         plt.add_mesh(mesh, scalars='cvalues')
         if path is not None:
-            plt.add_mesh(mesh.extract_points(path), color='red')
+            plt.add_mesh(mesh.extract_points(path), color='black')
 
         plt.show(screenshot='data/fire_%03d.png' % ix, interactive=False)
 
-        counter, cvalues, path = step(cells, cells_begin, cells_end, neighbors, cvalues, path, mesh.n_cells)
+        counter, cvalues, path = step(points, dual, cells, cells_begin, cells_end, cneighbors, pneighbors, cvalues, path, mesh.n_cells)
         ix += 1
