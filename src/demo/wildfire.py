@@ -5,8 +5,13 @@ import numpy as np
 import pyvista as pv
 
 
+class Manifold:
+    def __init__(self):
+        pass
+
+
 class Firefront:
-    def __init__(self, cutlines):
+    def __init__(self, cutlocus):
         pass
 
     def cut(self, point):
@@ -26,17 +31,17 @@ class FireBulk:
     def __init__(self):
         pass
 
-    def join(self, point):
+    def add(self, point):
         pass
 
-    def leave(self, point):
+    def minus(self, point):
         pass
 
     def step(self):
         pass
 
 
-class CutLines:
+class CutLocus:
     def __init__(self):
         pass
 
@@ -44,20 +49,20 @@ class CutLines:
         pass
 
 
-class FiringMethod:
-    def __init__(self, orig_points, dual_points):
-        self.orig_points = orig_points
-        self.dual_points = dual_points
-
-        self.cutlines = CutLines()
-
-        self.firefront = Firefront(self.cutlines)
+class WildFireMethod:
+    def __init__(self, manifold):
+        self.manifold = manifold
+        self.cutlocus = CutLocus()
+        self.firefront = Firefront(self.cutlocus)
         self.firebulk = FireBulk()
 
-    def step(self, point):
-        for fpoint in self.firefront:
-            for neighbor in neighbors(fpoint):
-
+    def step(self):
+        for face in self.firefront:
+            for fngbr in self.manifold.neighbor_faces(face):
+                if not self.firebulk.contains(fngbr):
+                    self.firefront.add(fngbr)
+            self.firefront.minus(face)
+            self.firebulk.add(face)
 
 
 def make_dual(points, cells, n_cells):
