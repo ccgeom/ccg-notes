@@ -10,7 +10,6 @@ class Manifold:
         self.mesh = mesh
         self.n_points = mesh.n_points
         self.n_cells = mesh.n_cells
-        mesh.cell_arrays['cvalues'] = np.zeros([self.n_cells])
         mesh.point_arrays['pvalues'] = np.zeros([self.n_points])
 
         print('copy data...')
@@ -68,23 +67,10 @@ class Manifold:
 
 
 class Firefront:
-    def __init__(self):
+    def __init__(self, manifold):
+        self.manifold = manifold
         self.listeners = []
-
-    def cut(self, point):
-        pass
-
-    def join(self, point):
-        pass
-
-    def leave(self, point):
-        pass
-
-    def step(self):
-        pass
-
-    def step(self):
-        pass
+        self.path = None
 
     def add_meet_listener(self, lstnr):
         self.listeners.append(lstnr)
@@ -95,22 +81,34 @@ class Firefront:
 
 
 class FireBulk:
-    def __init__(self):
-        pass
+    def __init__(self, manifold):
+        self.manifold = manifold
+        self.values = np.ones([manifold.mesh.n_cells]) * 0.7   # 绿色的森林
+        self.values[0] = 0.0                                   # 强制把色阶拉回去的 workaround
+        self.values[10000] = 1.0                               # 初始着火处
+        manifold.mesh.cell_arrays['firebulk'] = self.values
+        self.bulk = set()
 
-    def add(self, point):
-        pass
+    def add(self, cell):
+        self.values[cell] = 1.0
+        self.bulk.add(cell)
 
-    def minus(self, point):
-        pass
+    def minus(self, cell):
+        self.values[cell] = 0.5
+        self.bulk.remove(cell)
 
     def step(self):
-        pass
+        for cell in self.bulk:
+            val = self.values[cell]
+            if val * 0.9 < 0.7:
+                self.minus(cell)
+            else:
+                self.values[cell] = val * 0.9
 
 
 class CutLocus:
-    def __init__(self):
-        pass
+    def __init__(self, manifold):
+        self.manifold = manifold
 
     def join(self, point):
         pass
@@ -122,17 +120,21 @@ class CutLocus:
 class WildFireMethod:
     def __init__(self, manifold):
         self.manifold = manifold
-        self.cutlocus = CutLocus()
-        self.firefront = Firefront(self.cutlocus)
-        self.firebulk = FireBulk()
+        self.cutlocus = CutLocus(manifold)
+        self.firefront = Firefront(manifold)
+        self.firebulk = FireBulk(manifold)
+        self.firefront.add_meet_listener(self.cutlocus)
 
     def step(self):
+        counter = 0
         for face in self.firefront:
             for fngbr in self.manifold.neighbor_faces(face):
                 if not self.firebulk.contains(fngbr):
                     self.firefront.add(fngbr)
+                    counter += 1
             self.firefront.minus(face)
             self.firebulk.add(face)
+        return counter
 
 
 if __name__ == '__main__':
@@ -141,27 +143,23 @@ if __name__ == '__main__':
 
     print('initialize...')
     manifold = Manifold(mesh)
-    firefront = Firefront()
-    cutlocus = CutLocus()
-    firefront.add_meet_listener(cutlocus)
-
-    cvalues = np.ones([mesh.n_cells]) * 0.7   # 绿色的森林
-    cvalues[0] = 0.0                          # 强制把色阶拉回去的 workaround
-    cvalues[10000] = 1.0                      # 初始着火处
-    path = None
+    wildfire = WildFireMethod(manifold)
 
     print('evolving...')
     counter, ix = 1, 0
     while counter != 0:
         print(ix, counter)
-        mesh.cell_arrays['cvalues'][:] = cvalues
+        counter = wildfire.step()
 
         plt = pv.Plotter()
-        plt.add_mesh(mesh, scalars='cvalues')
-        if path is not None:
-            plt.add_mesh(mesh.extract_points(path), color='black')
+        plt.add_mesh(mesh, scalars='firebulk')
 
-        plt.show(screenshot='data/fire_%03d.png' % ix, interactive=False)
+        firefront = wildfire.firefront
+        if firefront.path is not None:
+            plt.add_mesh(mesh.extract_points(firefront.path), color='red')
+        cutlocus = wildfire.cutlocus
+        if cutlocus.path is not None:
+            plt.add_mesh(mesh.extract_points(cutlocus.path), color='black')
 
-        firefront.step()
+        plt.show(screenshot='data/wildfire_%03d.png' % ix, interactive=False)
         ix += 1
