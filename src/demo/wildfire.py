@@ -6,13 +6,70 @@ import pyvista as pv
 
 
 class Manifold:
-    def __init__(self):
-        pass
+    def __init__(self, mesh):
+        self.mesh = mesh
+        self.n_points = mesh.n_points
+        self.n_cells = mesh.n_cells
+        mesh.cell_arrays['cvalues'] = np.zeros([self.n_cells])
+        mesh.point_arrays['pvalues'] = np.zeros([self.n_points])
+
+        print('copy data...')
+        self.points = np.array(mesh.points).copy()
+        self.cells = np.array(mesh.cells).copy()
+
+        print('constructing dual...')
+        self.dual, self.cells_begin, self.cells_end = self.make_dual(self.points, self.cells, self.n_cells)
+
+        print('build index...')
+        self.neighbor_points = self.build_neighbors(self.points, self.n_points)
+        self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells)
+
+    def build_neighbors(points, n_points):
+        neighbors = {}
+        for i in range(n_points):
+            print(i, end=':')
+            sys.stdout.flush()
+            if i not in neighbors.keys():
+                neighbors[i] = set()
+
+            p = points[i]
+            for j in range(n_points):
+                if j not in neighbors.keys():
+                    neighbors[j] = set()
+
+                q = points[j]
+                if i != j:
+                    d = np.sqrt(np.sum((p - q) * (p - q)))
+                    if d < 0.01:
+                        neighbors[i].add((j, (q - p) / d))
+                        neighbors[j].add((i, (p - q) / d))
+                        print(len(neighbors[i]), end=',')
+            print()
+
+        return neighbors
+
+    def make_dual(points, cells, n_cells):
+        ix, cur = 0, 0
+        centroid = []
+        cells_begin = []
+        cells_end = []
+        while ix < n_cells:
+            sz = cells[cur]
+            assert sz > 2
+            ps = points[cells[cur + 1:cur + sz]]
+            assert ps.shape[1] == sz
+            centroid.append(np.mean(ps, axis=1))
+            cells_begin.append(cur + 1)
+            cells_end.append(cur + sz)
+            cur = cur + sz + 1
+            ix += 1
+        assert cur == cells.shape[0]
+        return np.array(centroid), np.array(cells_begin), np.array(cells_end)
 
 
 class Firefront:
-    def __init__(self, cutlocus):
-        pass
+    def __init__(self):
+        self.listeners = []
 
     def cut(self, point):
         pass
@@ -25,6 +82,16 @@ class Firefront:
 
     def step(self):
         pass
+
+    def step(self):
+        pass
+
+    def add_meet_listener(self, lstnr):
+        self.listeners.append(lstnr)
+
+    def on_meet(self, point):
+        for lstnr in self.listeners:
+            lstnr.on_firefront_meeted(self, point)
 
 
 class FireBulk:
@@ -48,6 +115,9 @@ class CutLocus:
     def join(self, point):
         pass
 
+    def on_firefront_meeted(self, point):
+        pass
+
 
 class WildFireMethod:
     def __init__(self, manifold):
@@ -65,99 +135,15 @@ class WildFireMethod:
             self.firebulk.add(face)
 
 
-def make_dual(points, cells, n_cells):
-    ix, cur = 0, 0
-    centroid = []
-    cells_begin = []
-    cells_end = []
-    while ix < n_cells:
-        sz = cells[cur]
-        assert sz > 2
-        ps = points[cells[cur + 1:cur + sz]]
-        assert ps.shape[1] == sz
-        centroid.append(np.mean(ps, axis=1))
-        cells_begin.append(cur + 1)
-        cells_end.append(cur + sz)
-        cur = cur + sz + 1
-        ix += 1
-    assert cur == cells.shape[0]
-    return np.array(centroid), np.array(cells_begin), np.array(cells_end)
-
-
-def build_index(points, n_points):
-    neighbors = {}
-    for i in range(n_points):
-        print(i, end=':')
-        sys.stdout.flush()
-        if i not in neighbors.keys():
-            neighbors[i] = set()
-
-        p = points[i]
-        for j in range(n_points):
-            if j not in neighbors.keys():
-                neighbors[j] = set()
-
-            q = points[j]
-            if i != j:
-                d = np.sqrt(np.sum((p - q) * (p - q)))
-                if d < 0.01:
-                    neighbors[i].add((j, (q - p) / d))
-                    neighbors[j].add((i, (p - q) / d))
-                    print(len(neighbors[i]), end=',')
-        print()
-
-    return neighbors
-
-
-def step(points, dual, cells, cells_begin, cells_end, pneighbors, cneighbors, cvalues, last_fireline, last_cutlines):
-    counter = 0
-    fireline = []
-    n_points, n_cells = points.shape[0], dual.shape[0]
-    result = np.copy(cvalues)
-    for i in range(n_cells):
-        ppos = dual[i]
-        pval = cvalues[i]
-        if pval > 0.8:                         # 如果 p 点正在燃烧
-            if pval * 0.9 < 0.8:               # 如果 p 点马上烧尽
-                result[i] = 0.5
-            else:
-                result[i] = pval * 0.9         # 如果 p 点未烧尽
-
-        if pval == 0.7:                        # 如果 p 点尚未燃烧过
-            for j, v in cneighbors[i]:
-                qpos = dual[j]
-                qval = cvalues[j]
-                if pval > 0.9:                 # 如果 p 点正在燃烧
-                    if qval == 0.7:            # 如果 q 点尚未燃烧过
-                        result[j] = 1.0        # 则点燃 q 点
-                        counter += 1
-
-    return counter, result, fireline, cutlines
-
-
-
 if __name__ == '__main__':
     print('reading mesh...')
     mesh = pv.read('data/doubletorus.vtu')
-    n_points = mesh.n_points
-    n_cells = mesh.n_cells
-    mesh.cell_arrays['cvalues'] = np.zeros([n_cells])
-    mesh.point_arrays['pvalues'] = np.zeros([n_points])
-
-    print('copy data...')
-    points = np.array(mesh.points).copy()
-    cells = np.array(mesh.cells).copy()
-
-    print('constructing dual...')
-    dual, cells_begin, cells_end = make_dual(points, cells, mesh.n_cells)
-
-    print('build index...')
-    pneighbors = build_index(points, mesh.n_cells)
-    cneighbors = build_index(dual, mesh.n_cells)
 
     print('initialize...')
+    manifold = Manifold(mesh)
     firefront = Firefront()
-    cutline = Cutline()
+    cutlocus = CutLocus()
+    firefront.add_meet_listener(cutlocus)
 
     cvalues = np.ones([mesh.n_cells]) * 0.7   # 绿色的森林
     cvalues[0] = 0.0                          # 强制把色阶拉回去的 workaround
@@ -177,5 +163,5 @@ if __name__ == '__main__':
 
         plt.show(screenshot='data/fire_%03d.png' % ix, interactive=False)
 
-        counter, cvalues, path = step(points, dual, cells, cells_begin, cells_end, cneighbors, pneighbors, cvalues, path, mesh.n_cells)
+        firefront.step()
         ix += 1
