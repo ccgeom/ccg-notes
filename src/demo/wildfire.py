@@ -147,7 +147,7 @@ class WildFireSweepingMethod:
     def step(self):
         counter = 0
         for face in self.firebulk.faces:
-
+            pass
         for point in self.firefront.path:
             for fngbr in self.manifold.neighbor_faces_by_point(point):
                 if not self.firebulk.contains(fngbr):
