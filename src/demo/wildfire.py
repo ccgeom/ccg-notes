@@ -10,7 +10,6 @@ class Manifold:
         self.mesh = mesh
         self.n_points = mesh.n_points
         self.n_cells = mesh.n_cells
-        mesh.point_arrays['pvalues'] = np.zeros([self.n_points])
 
         print('copy data...')
         self.points = np.array(mesh.points).copy()
@@ -19,35 +18,35 @@ class Manifold:
         print('constructing dual...')
         self.dual, self.cells_begin, self.cells_end = self.make_dual(self.points, self.cells, self.n_cells)
 
-        print('build index...')
-        self.neighbor_points = self.build_neighbors(self.points, self.n_points)
-        self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells)
+        print('build neighbor index...')
+        #self.neighbor_points = self.build_neighbors(self.points, self.n_points, 0.05)
+        #self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells, 0.05)
 
-    def build_neighbors(points, n_points):
-        neighbors = {}
+    def build_neighbors(self, points, n_points, thrshold):
+        neighbors = []
         for i in range(n_points):
             print(i, end=':')
             sys.stdout.flush()
-            if i not in neighbors.keys():
-                neighbors[i] = set()
+            if i >= len(neighbors):
+                neighbors.append(set())
 
             p = points[i]
             for j in range(n_points):
-                if j not in neighbors.keys():
-                    neighbors[j] = set()
+                if j >= len(neighbors):
+                    neighbors.append(set())
 
                 q = points[j]
                 if i != j:
                     d = np.sqrt(np.sum((p - q) * (p - q)))
-                    if d < 0.01:
-                        neighbors[i].add((j, (q - p) / d))
-                        neighbors[j].add((i, (p - q) / d))
+                    if d < thrshold:
+                        neighbors[i].add(j)
+                        neighbors[j].add(i)
                         print(len(neighbors[i]), end=',')
             print()
 
         return neighbors
 
-    def make_dual(points, cells, n_cells):
+    def make_dual(self, points, cells, n_cells):
         ix, cur = 0, 0
         centroid = []
         cells_begin = []
@@ -80,6 +79,20 @@ class Firefront:
             lstnr.on_firefront_meeted(self, point)
 
 
+class Firetail:
+    def __init__(self, manifold):
+        self.manifold = manifold
+        self.listeners = []
+        self.path = None
+
+    def add_vanish_listener(self, lstnr):
+        self.listeners.append(lstnr)
+
+    def on_vanish(self, point):
+        for lstnr in self.listeners:
+            lstnr.on_firetail_vanished(self, point)
+
+
 class FireBulk:
     def __init__(self, manifold):
         self.manifold = manifold
@@ -102,6 +115,7 @@ class FireBulk:
             val = self.values[cell]
             if val * 0.9 < 0.7:
                 self.minus(cell)
+                self.values[cell] = 0.5
             else:
                 self.values[cell] = val * 0.9
 
@@ -113,27 +127,32 @@ class CutLocus:
     def join(self, point):
         pass
 
-    def on_firefront_meeted(self, point):
-        pass
 
-
-class WildFireMethod:
+class WildFireSweepingMethod:
     def __init__(self, manifold):
         self.manifold = manifold
         self.cutlocus = CutLocus(manifold)
         self.firefront = Firefront(manifold)
+        self.firetail = Firetail(manifold)
         self.firebulk = FireBulk(manifold)
-        self.firefront.add_meet_listener(self.cutlocus)
+        self.firefront.add_meet_listener(self)
+        self.firetail.add_vanish_listener(self)
+
+    def on_firefront_meeted(self, point):
+        pass
+
+    def on_firetail_vanished(self, point):
+        pass
 
     def step(self):
         counter = 0
-        for face in self.firefront:
-            for fngbr in self.manifold.neighbor_faces(face):
+        for face in self.firebulk.faces:
+
+        for point in self.firefront.path:
+            for fngbr in self.manifold.neighbor_faces_by_point(point):
                 if not self.firebulk.contains(fngbr):
-                    self.firefront.add(fngbr)
+                    self.firebulk.add(fngbr)
                     counter += 1
-            self.firefront.minus(face)
-            self.firebulk.add(face)
         return counter
 
 
@@ -143,7 +162,7 @@ if __name__ == '__main__':
 
     print('initialize...')
     manifold = Manifold(mesh)
-    wildfire = WildFireMethod(manifold)
+    wildfire = WildFireSweepingMethod(manifold)
 
     print('evolving...')
     counter, ix = 1, 0
