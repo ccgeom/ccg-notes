@@ -6,21 +6,26 @@ import pyvista as pv
 
 
 class Manifold:
-    def __init__(self, mesh):
-        self.mesh = mesh
-        self.n_points = mesh.n_points
-        self.n_cells = mesh.n_cells
+    def __init__(self, mesh=None):
+        if mesh != None:
+            self.mesh = mesh
+            self.n_points = mesh.n_points
+            self.n_cells = mesh.n_cells
 
-        print('copy data...')
-        self.points = np.array(mesh.points).copy()
-        self.cells = np.array(mesh.cells).copy()
+            print('copy data...')
+            self.points = np.array(mesh.points).copy()
+            self.cells = np.array(mesh.cells).copy()
 
-        print('constructing dual...')
-        self.dual, self.cells_begin, self.cells_end = self.make_dual(self.points, self.cells, self.n_cells)
+            print('constructing dual...')
+            self.dual, self.cells_begin, self.cells_end = self.make_dual(self.points, self.cells, self.n_cells)
 
-        print('build neighbor index...')
-        #self.neighbor_points = self.build_neighbors(self.points, self.n_points, 0.05)
-        #self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells, 0.05)
+            print('build neighbor index...')
+            self.neighbor_points = self.build_neighbors(self.points, self.n_points, 0.05)
+            self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells, 0.05)
+
+            print('build neighbor index...')
+            self.neighbor_points = self.build_neighbors(self.points, self.n_points, 0.05)
+            self.neighbor_faces = self.build_neighbors(self.dual, self.n_cells, 0.05)
 
     def build_neighbors(self, points, n_points, thrshold):
         neighbors = []
@@ -66,7 +71,7 @@ class Manifold:
 
 
 class Firefront:
-    def __init__(self, manifold):
+    def __init__(self, manifold, start_cell):
         self.manifold = manifold
         self.listeners = []
         self.path = None
@@ -94,11 +99,11 @@ class Firetail:
 
 
 class FireBulk:
-    def __init__(self, manifold):
+    def __init__(self, manifold, start_cell):
         self.manifold = manifold
         self.values = np.ones([manifold.mesh.n_cells]) * 0.7   # 绿色的森林
         self.values[0] = 0.0                                   # 强制把色阶拉回去的 workaround
-        self.values[10000] = 1.0                               # 初始着火处
+        self.values[start_cell] = 1.0                          # 初始着火处
         manifold.mesh.cell_arrays['firebulk'] = self.values
         self.bulk = set()
 
@@ -129,12 +134,13 @@ class CutLocus:
 
 
 class WildFireSweepingMethod:
-    def __init__(self, manifold):
+    def __init__(self, manifold, start_cell):
         self.manifold = manifold
+        self.start_cell = start_cell
         self.cutlocus = CutLocus(manifold)
-        self.firefront = Firefront(manifold)
+        self.firebulk = FireBulk(manifold, start_cell)
+        self.firefront = Firefront(manifold, start_cell)
         self.firetail = Firetail(manifold)
-        self.firebulk = FireBulk(manifold)
         self.firefront.add_meet_listener(self)
         self.firetail.add_vanish_listener(self)
 
@@ -146,22 +152,36 @@ class WildFireSweepingMethod:
 
     def step(self):
         counter = 0
-        for face in self.firebulk.faces:
-            pass
-        for point in self.firefront.path:
+        firefront_path = self.firefront.path
+        self.firefront.begin()
+        for point in firefront_path:
             for fngbr in self.manifold.neighbor_faces_by_point(point):
                 if not self.firebulk.contains(fngbr):
                     self.firebulk.add(fngbr)
+                    self.firefront.add_edges_of(fngbr)
                     counter += 1
+        self.firefront.commit()
+        self.firebulk.step()
+        self.firetail.step()
         return counter
 
 
 if __name__ == '__main__':
-    print('reading mesh...')
-    mesh = pv.read('data/doubletorus.vtu')
+    import pathlib
+    import pickle
 
-    print('initialize...')
-    manifold = Manifold(mesh)
+    mf = pathlib.Path('data/doubletorus.pkl')
+    if mf.exists():
+        print('reading manifold...')
+        manifold = pickle.load(mf)
+    else:
+        print('reading mesh...')
+        mesh = pv.read('data/doubletorus.vtu')
+        print('constructing manifold...')
+        manifold = Manifold(mesh)
+        print('writing manifold...')
+        pickle.dump(manifold, mf)
+
     wildfire = WildFireSweepingMethod(manifold)
 
     print('evolving...')
