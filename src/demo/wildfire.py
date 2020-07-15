@@ -42,6 +42,7 @@ class Manifold:
 
     def build_neighbors(self, points1, n_points1, points2, n_points2, thrshold):
         neighbors = [set() for _ in range(n_points1)]
+        flag = len(points1) != len(points2) or (points1 != points2).any()
         for i in range(n_points1):
             print(i, end=':')
             sys.stdout.flush()
@@ -52,7 +53,7 @@ class Manifold:
                 e = p - q
                 d = np.sqrt(np.sum(e * e))
                 if d < thrshold:
-                    if len(points1) != len(points2) or (points1 != points2).any():
+                    if flag:
                         neighbors[i].add(j)
                     else:
                         if i != j:
@@ -258,7 +259,7 @@ if __name__ == '__main__':
         print('constructing manifold...')
         manifold = Manifold(mesh)
         print('writing manifold...')
-        pickle.dump(manifold, mf.open(mode='w'))
+        pickle.dump(manifold, mf.open(mode='wb'))
 
     wildfire = WildFireSweepingMethod(manifold, start_face=5000)
 
