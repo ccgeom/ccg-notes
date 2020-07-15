@@ -17,39 +17,50 @@ class Manifold:
         if mesh != None:
             self.mesh = mesh
             self.n_points = mesh.n_points
-            self.n_faces = mesh.n_faces
+            self.n_faces = mesh.n_cells
 
             print('copy data...')
             self.points = np.array(mesh.points).copy()
-            self.faces = np.array(mesh.faces).copy()
+            self.faces = np.array(mesh.cells).copy()
 
             print('constructing dual...')
             self.dual, self.faces_begin, self.faces_end = self.make_dual(self.points, self.faces, self.n_faces)
 
             print('build neighbor index...')
-            self.neighbor_points = self.build_neighbors(self.points, self.n_points, 0.05)
-            self.neighbor_faces = self.build_neighbors(self.dual, self.n_faces, 0.05)
+            self.neighbor_points = self.build_neighbors(self.points, self.n_points, self.points, self.n_points, 0.05)
+            self.neighbor_faces = self.build_neighbors(self.dual, self.n_faces, self.dual, self.n_faces, 0.05)
+            self.neighbor_point2face = self.build_neighbors(self.points, self.n_points, self.dual, self.n_faces, 0.05)
 
-    def build_neighbors(self, points, n_points, thrshold):
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["mesh"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.mesh = None
+
+    def build_neighbors(self, points1, n_points1, points2, n_points2, thrshold):
         neighbors = []
-        for i in range(n_points):
+        for i in range(n_points1):
             print(i, end=':')
             sys.stdout.flush()
             if i >= len(neighbors):
                 neighbors.append(set())
 
-            p = points[i]
-            for j in range(n_points):
-                if j >= len(neighbors):
-                    neighbors.append(set())
+            p = points1[i]
+            for j in range(n_points2):
+                q = points2[j]
 
-                q = points[j]
-                if i != j:
-                    d = np.sqrt(np.sum((p - q) * (p - q)))
-                    if d < thrshold:
+                d = np.sqrt(np.sum((p - q) * (p - q)))
+                if d < thrshold:
+                    if len(points1) != len(points2) or (points1 != points2).any():
                         neighbors[i].add(j)
-                        neighbors[j].add(i)
-                        print(len(neighbors[i]), end=',')
+                    else:
+                        if i != j:
+                            neighbors[i].add(j)
+
+            print(len(neighbors[i]), end=',')
             print()
 
         return neighbors
@@ -90,42 +101,50 @@ class EvolvingBoundary:
             for ix in range(l):
                 a = r[ix - 1]
                 b = r[ix]
-                c = r[(ix + 1) % l]
-                if a not in self.workarea:
-                    self.workarea[a] = 0, b
-                if b not in self.workarea:
-                    self.workarea[b] = 0, c
-
-                self.workarea[a][0] = self.workarea[a][0] - 1
-                self.workarea[b][0] = self.workarea[b][0] + 1
+                if a < b:
+                    key, sgn = (a, b), 1
+                if a > b:
+                    key, sgn = (b, a), -1
+                if key not in self.workarea:
+                    self.workarea[key] = 0
+                self.workarea[key] = self.workarea[key] + sgn
 
     def commit(self):
-        pass
+        next = {}
+        for a, b in self.workarea.keys():
+            val = self.workarea[(a, b)]
+            if val > 0:
+                next[a] = b
+            if val < 0:
+                next[b] = a
+        paths = []
+        while len(next) > 0:
+            path = []
+            key = next.keys()[0]
+            while key in next:
+                path.append(key)
+                next.pop(key)
+                key = next[key]
+            paths.append(np.array(path, dtype=np.int))
+        self.cycles = paths
 
     def insert(self, edges):
         for ix in len(edges):
             a = edges[ix - 1]
-            if a not in self.workarea:
-                self.workarea[a] = 0
             b = edges[ix]
-            if b not in self.workarea:
-                self.workarea[b] = 0
-
-            self.workarea[a] = self.workarea[a] - 1
-            self.workarea[b] = self.workarea[b] + 1
+            if a < b:
+                key, sgn = (a, b), 1
+            if a > b:
+                key, sgn = (b, a), -1
+            if key not in self.workarea:
+                self.workarea[key] = 0
+            self.workarea[key] = self.workarea[key] + sgn
 
 
 class Firefront(EvolvingBoundary):
     def __init__(self, manifold, start_face):
         super(manifold)
-        self.listeners = []
-
-    def add_meet_listener(self, lstnr):
-        self.listeners.append(lstnr)
-
-    def on_meet(self, point):
-        for lstnr in self.listeners:
-            lstnr.on_firefront_meeted(self, point)
+        self.insert(self.manifold.edges(start_face))
 
 
 class Firetail(EvolvingBoundary):
@@ -196,11 +215,7 @@ class WildFireSweepingMethod:
         self.firebulk = FireBulk(manifold, start_face)
         self.firefront = Firefront(manifold, start_face)
         self.firetail = Firetail(manifold)
-        self.firefront.add_meet_listener(self)
         self.firebulk.add_vanish_listener(self)
-
-    def on_firefront_meeted(self, point):
-        pass
 
     def on_firebulk_vanished(self, face):
         self.firetail.insert(manifold.edges(face))
@@ -215,14 +230,15 @@ class WildFireSweepingMethod:
 
     def step(self):
         counter = 0
-        firefront_path = self.firefront.path
+        firefront_cycles = self.firefront.cycles
         self.begin()
-        for point in firefront_path:
-            for fngbr in self.manifold.neighbor_faces_by_point(point):
-                if not self.firebulk.contains(fngbr):
-                    self.firebulk.add(fngbr)
-                    self.firefront.insert(manifold.edges(fngbr))
-                    counter += 1
+        for cycle in firefront_cycles:
+            for point in cycle:
+                for fngbr in self.manifold.neighbor_point2face[point]:
+                    if not self.firebulk.contains(fngbr):
+                        self.firebulk.add(fngbr)
+                        self.firefront.insert(manifold.edges(fngbr))
+                        counter += 1
         self.commit()
         self.firebulk.step()
         return counter
@@ -235,7 +251,9 @@ if __name__ == '__main__':
     mf = pathlib.Path('data/doubletorus.pkl')
     if mf.exists():
         print('reading manifold...')
-        manifold = pickle.load(mf)
+        manifold = pickle.load(mf.open(mode='rb'))
+        mesh = pv.read('data/doubletorus.vtu')
+        manifold.mesh = mesh
     else:
         print('reading mesh...')
         mesh = pv.read('data/doubletorus.vtu')
@@ -255,10 +273,10 @@ if __name__ == '__main__':
         plt = pv.Plotter()
         plt.add_mesh(manifold.mesh, scalars=wildfire.firebulk.name)
 
-        firefront = wildfire.firefront.path
-        if firefront is not None:
-            plt.add_mesh(manifold.mesh.extract_points(firefront), color='red')
-        cutlocus = wildfire.cutlocus.path
+        firefront_cycles = wildfire.firefront.cycles
+        for cycle in firefront_cycles:
+            plt.add_mesh(manifold.mesh.extract_points(cycle), color='red')
+        cutlocus = wildfire.cutlocus
         if cutlocus is not None:
             plt.add_mesh(manifold.mesh.extract_points(cutlocus), color='black')
 
