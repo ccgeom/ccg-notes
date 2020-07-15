@@ -41,18 +41,16 @@ class Manifold:
         self.mesh = None
 
     def build_neighbors(self, points1, n_points1, points2, n_points2, thrshold):
-        neighbors = []
+        neighbors = [set() for _ in range(n_points1)]
         for i in range(n_points1):
             print(i, end=':')
             sys.stdout.flush()
-            if i >= len(neighbors):
-                neighbors.append(set())
 
             p = points1[i]
             for j in range(n_points2):
                 q = points2[j]
-
-                d = np.sqrt(np.sum((p - q) * (p - q)))
+                e = p - q
+                d = np.sqrt(np.sum(e * e))
                 if d < thrshold:
                     if len(points1) != len(points2) or (points1 != points2).any():
                         neighbors[i].add(j)
@@ -75,7 +73,7 @@ class Manifold:
             assert sz > 2
             ps = points[faces[cur + 1:cur + sz]]
             assert ps.shape[1] == sz
-            centroid.append(np.mean(ps, axis=1))
+            centroid.append(np.mean(ps, axis=0))
             faces_begin.append(cur + 1)
             faces_end.append(cur + sz)
             cur = cur + sz + 1
