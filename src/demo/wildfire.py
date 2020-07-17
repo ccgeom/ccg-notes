@@ -120,8 +120,10 @@ class Manifold:
                         fs = manifold.point2faces[p]
                         for f in fs:
                             candidate.add(f)
+                    while len(candidate) > 0:
+                        face = candidate.pop()
+
                     checker.commit()
-                face = candidate.pop()
             except AssertionError:
                 index = faces[face]
                 begin, end = self.faces_begin[face], self.faces_end[face] + 1
