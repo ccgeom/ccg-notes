@@ -112,7 +112,5 @@ if (eval "${PY} bin/env.py"); then
     fi
 
     export PATH="$PATH:${PRJ_HOME}/bin/"
-
-    sh scripts/install_fealpy.sh
 fi
 

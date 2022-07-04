@@ -1,7 +1,2 @@
-pybind11 # python 与 c++ 接口
-pyamg # 多重网格解法器
-meshpy # 网格生成器
-meshio # 常见的网格文件格式读取
-pyfftw # Fast Fourier Transform
-pyvista # 可视化包
-
+vedo    # visualisation toolkit
+panel
