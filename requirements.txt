@@ -1,2 +1,3 @@
-vedo    # visualisation toolkit
+vedo       # 3D visualisation toolkit
+pyvista    # 3D visualization toolkit
 panel
