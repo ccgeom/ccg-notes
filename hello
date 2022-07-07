@@ -22,7 +22,7 @@ if [[ $PYV == 3* ]]
 then
     PY=python;
     PIP=pip;
-    PIP_INST="pip install -i https://pypi.douban.com/simple/";
+    PIP_INST="pip install";
     NTB="jupyter notebook";
     TEST="nosetests"
 fi

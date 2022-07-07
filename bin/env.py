@@ -47,7 +47,7 @@ Check python version
 
 info("checking python version...")
 
-req_version = (3, 6)
+req_version = (3, 7)
 cur_version = sys.version_info
 
 if cur_version < req_version:
