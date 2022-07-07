@@ -1,7 +1,3 @@
-import random
-import sys
-import itertools
-
 import numpy as np
 import pyvista as pv
 
@@ -230,8 +226,9 @@ class FireBulk:
         self.bulk = set()
         self.listeners = []
 
-        self.values = np.ones([manifold.mesh.n_cells]) * 0.7   # 黄色的森林
+        self.values = np.ones([manifold.mesh.n_cells]) * 0.7   # 绿色的森林
         self.values[0] = 0.0                                   # 强制把色阶拉回去的 workaround
+        self.values[1] = 1.0                                   # 强制把色阶拉回去的 workaround
         self.values[start_face] = 1.0                          # 初始着火处
         manifold.mesh.cell_data[self.name] = self.values
 
@@ -262,6 +259,7 @@ class FireBulk:
             else:
                 self.values[face] = val * 0.9
         self.values[0] = 0.0   # 强制把色阶拉回去的 workaround
+        self.values[1] = 1.0   # 强制把色阶拉回去的 workaround
 
 
 class CutLocus:
@@ -312,7 +310,10 @@ class WildFireSweepingMethod:
                         self.firefront.insert(manifold.edges(fngbr))
                         counter += 1
         self.commit()
+        #self.begin()
         self.firebulk.step()
+        #self.commit()
+
         return counter
 
 
@@ -352,9 +353,10 @@ if __name__ == '__main__':
         manifold.mesh.cell_data[wildfire.firebulk.name][:] = wildfire.firebulk.values
         plt.add_mesh(manifold.mesh, scalars=wildfire.firebulk.name)
 
-        firefront_cycles = wildfire.firefront.cycles
-        for cycle in firefront_cycles:
+        for cycle in wildfire.firefront.cycles:
             plt.add_mesh(manifold.mesh.extract_points(cycle), color='red')
+        #for cycle in wildfire.firetail.cycles:
+        #    plt.add_mesh(manifold.mesh.extract_points(cycle), color='blue')
         cutlocus = wildfire.cutlocus.path
         if len(cutlocus) > 1:
             plt.add_mesh(manifold.mesh.extract_points(cutlocus), color='black')
