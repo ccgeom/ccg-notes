@@ -202,7 +202,10 @@ class EvolvingBoundary:
                 self.working_area[key] = 0
             val = self.working_area[key] + sgn
             #assert np.abs(val) < 2.0
-            self.working_area[key] = val
+            if val == 0:
+                self.working_area.pop(key)
+            else:
+                self.working_area[key] = val
 
 
 class FireFront(EvolvingBoundary):
